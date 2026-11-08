@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api, chapterLabel, imageUrl, type Chapter, type Manga, type Progress } from '../api'
 import { useSession } from '../supabase'
@@ -10,6 +10,25 @@ const savedLang = () => {
   return lang in LANGS ? lang : 'es'
 }
 
+const PER_PAGE = 100
+
+function Pager({ page, pages, onChange }: { page: number; pages: number; onChange: (p: number) => void }) {
+  if (pages <= 1) return null
+  return (
+    <div className="pager">
+      <button disabled={page === 0} onClick={() => onChange(page - 1)}>
+        ← Anterior
+      </button>
+      <span>
+        Página {page + 1} de {pages}
+      </span>
+      <button disabled={page === pages - 1} onClick={() => onChange(page + 1)}>
+        Siguiente →
+      </button>
+    </div>
+  )
+}
+
 export default function MangaPage() {
   const { id = '' } = useParams()
   const session = useSession()
@@ -18,6 +37,9 @@ export default function MangaPage() {
   const [lang, setLang] = useState(savedLang)
   const [favorite, setFavorite] = useState(false)
   const [progress, setProgress] = useState<Progress | null>(null)
+  // Página de capítulos; vuelve a la primera si cambia el manga o el idioma.
+  const [paging, setPaging] = useState({ key: '', page: 0 })
+  const listTop = useRef<HTMLHeadingElement>(null)
 
   useEffect(() => {
     api.manga(id).then(setManga)
@@ -45,6 +67,14 @@ export default function MangaPage() {
   }
 
   const chapters = loaded?.key === id + lang ? loaded.items : null
+  const page = paging.key === id + lang ? paging.page : 0
+  const pages = Math.ceil((chapters?.length ?? 0) / PER_PAGE)
+  const visible = chapters?.slice(page * PER_PAGE, (page + 1) * PER_PAGE)
+
+  function goToPage(n: number) {
+    setPaging({ key: id + lang, page: n })
+    listTop.current?.scrollIntoView?.({ behavior: 'smooth' })
+  }
 
   if (!manga) return <p>Cargando…</p>
 
@@ -69,7 +99,9 @@ export default function MangaPage() {
       </div>
 
       <section className="chapters">
-        <h2>Capítulos</h2>
+        <h2 ref={listTop}>
+          Capítulos {chapters && chapters.length > 0 && <small>({chapters.length})</small>}
+        </h2>
         <select value={lang} onChange={(e) => changeLang(e.target.value)} aria-label="Idioma">
           {Object.entries(LANGS).map(([code, name]) => (
             <option key={code} value={code}>
@@ -79,8 +111,9 @@ export default function MangaPage() {
         </select>
         {!chapters && <p>Cargando…</p>}
         {chapters?.length === 0 && <p>No hay capítulos en este idioma.</p>}
-        <ul>
-          {chapters?.map((c) => (
+        <Pager page={page} pages={pages} onChange={goToPage} />
+        <ul aria-label="Capítulos">
+          {visible?.map((c) => (
             <li key={c.id}>
               {c.external_url ? (
                 <a href={c.external_url} target="_blank" rel="noreferrer">
@@ -92,6 +125,7 @@ export default function MangaPage() {
             </li>
           ))}
         </ul>
+        <Pager page={page} pages={pages} onChange={goToPage} />
       </section>
     </article>
   )

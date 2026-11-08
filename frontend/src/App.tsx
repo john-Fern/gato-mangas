@@ -1,4 +1,5 @@
-import { HashRouter, Link, Route, Routes } from 'react-router-dom'
+import { HashRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
+import Logo from './Logo'
 import Favorites from './pages/Favorites'
 import Home from './pages/Home'
 import Login from './pages/Login'
@@ -6,27 +7,49 @@ import MangaPage from './pages/MangaPage'
 import Reader from './pages/Reader'
 import { supabase, useSession } from './supabase'
 
-export default function App() {
+function Header() {
   const session = useSession()
+  const email = session?.user.email ?? ''
   return (
-    <HashRouter>
-      <header className="topbar">
+    <header className="topbar">
+      <div className="topbar-inner">
         <Link to="/" className="logo">
-          🐱 Gato Mangas
+          <Logo />
+          <span>
+            Gato <b>Mangas</b>
+          </span>
         </Link>
         <nav>
+          <NavLink to="/" end>
+            Explorar
+          </NavLink>
+          {session && <NavLink to="/favorites">Favoritos</NavLink>}
+        </nav>
+        <div className="account">
           {session ? (
             <>
-              <Link to="/favorites">Favoritos</Link>
-              <button className="link" onClick={() => supabase?.auth.signOut()}>
+              <span className="avatar" title={email}>
+                {email.charAt(0).toUpperCase()}
+              </span>
+              <button className="ghost" onClick={() => supabase?.auth.signOut()}>
                 Salir
               </button>
             </>
           ) : (
-            <Link to="/login">Entrar</Link>
+            <Link to="/login" className="button pill">
+              Entrar
+            </Link>
           )}
-        </nav>
-      </header>
+        </div>
+      </div>
+    </header>
+  )
+}
+
+export default function App() {
+  return (
+    <HashRouter>
+      <Header />
       <main>
         <Routes>
           <Route path="/" element={<Home />} />
