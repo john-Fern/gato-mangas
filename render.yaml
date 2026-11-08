@@ -3,7 +3,9 @@ services:
   - type: web
     name: gato-mangas-api
     runtime: docker
-    rootDir: backend
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
     healthCheckPath: /api/health
     autoDeploy: false   # el deploy lo dispara GitHub Actions tras pasar los tests
     envVars:
