@@ -1,4 +1,4 @@
-# 📚 Manga Reader
+# 🐱 Gato Mangas
 
 Lector web de mangas, manhwas y manhuas. Los datos vienen de la API pública de
 [MangaDex](https://api.mangadex.org/docs/). Ver [PLAN.md](PLAN.md) para el plan, la arquitectura y las historias de usuario.

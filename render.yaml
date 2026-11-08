@@ -1,7 +1,7 @@
 # Blueprint de Render para el backend (configura las variables en el dashboard)
 services:
   - type: web
-    name: manga-reader-api
+    name: gato-mangas-api
     runtime: docker
     rootDir: backend
     healthCheckPath: /api/health

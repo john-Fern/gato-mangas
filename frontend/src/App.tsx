@@ -12,7 +12,7 @@ export default function App() {
     <HashRouter>
       <header className="topbar">
         <Link to="/" className="logo">
-          📚 Manga Reader
+          🐱 Gato Mangas
         </Link>
         <nav>
           {session ? (

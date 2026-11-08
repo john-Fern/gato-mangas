@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from app.mangadex import MangaDexClient, NotFound
 
-app = FastAPI(title="Manga Reader API")
+app = FastAPI(title="Gato Mangas API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(","),
@@ -19,7 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-USER_AGENT = "manga-reader/0.1"
+USER_AGENT = "gato-mangas/0.1"
 _http = httpx.AsyncClient(timeout=20, headers={"User-Agent": USER_AGENT})
 
 

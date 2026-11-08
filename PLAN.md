@@ -1,4 +1,4 @@
-# Plan — Manga Reader
+# Plan — Gato Mangas
 
 Lector web de mangas, manhwas y manhuas que consume la API pública de **MangaDex**.
 
