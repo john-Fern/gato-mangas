@@ -1,3 +1,4 @@
+import logging
 import os
 from collections.abc import AsyncIterator, Iterator
 from typing import Annotated, Literal
@@ -10,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
+from app.local import LocalCatalog, image_referer, is_local
 from app.mangadex import MangaDexClient, NotFound
 
 app = FastAPI(title="Gato Mangas API")
@@ -20,6 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+log = logging.getLogger(__name__)
 USER_AGENT = "gato-mangas/0.1"
 _http = httpx.AsyncClient(timeout=20, headers={"User-Agent": USER_AGENT})
 
@@ -34,6 +37,10 @@ async def get_mangadex() -> AsyncIterator[MangaDexClient]:
 def get_conn() -> Iterator[psycopg.Connection]:
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
         yield conn
+
+
+def get_catalog() -> LocalCatalog:
+    return LocalCatalog(lambda: psycopg.connect(os.environ["DATABASE_URL"]))
 
 
 async def get_user_id(authorization: str | None = Header(default=None)) -> str:
@@ -81,9 +88,21 @@ class MangaFilters(BaseModel):
 
 @app.get("/api/manga")
 async def search(
-    filters: Annotated[MangaFilters, Query()], md: MangaDexClient = Depends(get_mangadex)
+    filters: Annotated[MangaFilters, Query()],
+    md: MangaDexClient = Depends(get_mangadex),
+    catalog: LocalCatalog = Depends(get_catalog),
 ):
-    return await md.search(filters)
+    result = await md.search(filters)
+    # Los mangas propios van primero, solo en la primera página y con filtros que entienden.
+    unsupported = filters.genre or filters.status or filters.demographic or filters.lang == "en"
+    if filters.offset == 0 and not unsupported:
+        try:
+            local = catalog.search(filters.q, filters.type)
+        except Exception:
+            log.exception("No se pudo buscar en el catálogo propio")
+            local = []
+        result = {"items": local + result["items"], "total": result["total"] + len(local)}
+    return result
 
 
 _genres_cache: list[dict] = []
@@ -98,7 +117,13 @@ async def genres(md: MangaDexClient = Depends(get_mangadex)):
 
 
 @app.get("/api/manga/{manga_id}")
-async def manga(manga_id: str, md: MangaDexClient = Depends(get_mangadex)):
+async def manga(
+    manga_id: str,
+    md: MangaDexClient = Depends(get_mangadex),
+    catalog: LocalCatalog = Depends(get_catalog),
+):
+    if is_local(manga_id):
+        return catalog.manga(manga_id)
     return await md.manga(manga_id)
 
 
@@ -107,12 +132,21 @@ async def chapters(
     manga_id: str,
     lang: Literal["es", "en"] = "es",
     md: MangaDexClient = Depends(get_mangadex),
+    catalog: LocalCatalog = Depends(get_catalog),
 ):
+    if is_local(manga_id):
+        return catalog.chapters(manga_id)
     return await md.chapters(manga_id, lang)
 
 
 @app.get("/api/chapters/{chapter_id}/pages")
-async def pages(chapter_id: str, md: MangaDexClient = Depends(get_mangadex)):
+async def pages(
+    chapter_id: str,
+    md: MangaDexClient = Depends(get_mangadex),
+    catalog: LocalCatalog = Depends(get_catalog),
+):
+    if is_local(chapter_id):
+        return {"pages": catalog.pages(chapter_id)}
     return {"pages": await md.pages(chapter_id)}
 
 
@@ -126,9 +160,10 @@ def _allowed_image_host(url: str) -> bool:
 
 @app.get("/api/image")
 async def image(url: str, md: MangaDexClient = Depends(get_mangadex)):
-    if not _allowed_image_host(url):
+    referer = "https://mangadex.org/" if _allowed_image_host(url) else image_referer(url)
+    if not referer:
         raise HTTPException(400, "Host no permitido")
-    res = await md.image(url)
+    res = await md.image(url, referer)
     if res.status_code != 200:
         raise HTTPException(502, "No se pudo obtener la imagen")
     return Response(
