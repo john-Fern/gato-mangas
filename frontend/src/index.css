@@ -46,7 +46,10 @@ input, select { padding: 8px; border-radius: 6px; border: 1px solid var(--muted)
 .login { display: flex; flex-direction: column; gap: 8px; max-width: 320px; }
 .error { color: var(--accent); }
 @media (max-width: 640px) { .detail { grid-template-columns: 1fr; } .detail .cover { max-width: 240px; } }
-.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.filters { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.chips, .selects { display: flex; gap: 8px; flex-wrap: wrap; align-items: end; }
+.selects label { display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem; color: var(--muted); }
+.selects label.check { flex-direction: row; align-items: center; color: var(--fg); font-size: 0.9rem; padding-bottom: 8px; }
 .filters button { background: var(--card); color: var(--fg); border: 1px solid var(--muted); border-radius: 999px; }
 .filters button[aria-pressed='true'] { background: var(--accent); color: #fff; border-color: var(--accent); }
 .loading { text-align: center; color: var(--muted); padding: 16px; }

@@ -1,6 +1,6 @@
 import os
 from collections.abc import AsyncIterator, Iterator
-from typing import Literal
+from typing import Annotated, Literal
 from urllib.parse import urlparse
 
 import httpx
@@ -8,7 +8,7 @@ import psycopg
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from psycopg.rows import dict_row
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.mangadex import MangaDexClient, NotFound
 
@@ -67,15 +67,34 @@ def health():
     return {"status": "ok"}
 
 
+class MangaFilters(BaseModel):
+    q: str | None = None
+    type: Literal["manga", "manhwa", "manhua"] | None = None
+    genre: list[str] = []
+    status: Literal["ongoing", "completed", "hiatus", "cancelled"] | None = None
+    demographic: Literal["shounen", "shoujo", "seinen", "josei"] | None = None
+    sort: Literal["relevance", "popular", "latest", "rating", "new", "title"] | None = None
+    lang: Literal["es", "es-la", "en"] | None = None
+    limit: int = Field(24, le=100)
+    offset: int = Field(0, ge=0, le=9900)  # MangaDex no pagina más allá de 10.000
+
+
 @app.get("/api/manga")
 async def search(
-    q: str | None = None,
-    type: Literal["manga", "manhwa", "manhua"] | None = None,
-    limit: int = Query(24, le=100),
-    offset: int = Query(0, ge=0, le=9900),
-    md: MangaDexClient = Depends(get_mangadex),
+    filters: Annotated[MangaFilters, Query()], md: MangaDexClient = Depends(get_mangadex)
 ):
-    return await md.search(q, limit, offset, type)
+    return await md.search(filters)
+
+
+_genres_cache: list[dict] = []
+
+
+@app.get("/api/genres")
+async def genres(md: MangaDexClient = Depends(get_mangadex)):
+    # Los géneros de MangaDex casi nunca cambian: se piden una vez por proceso.
+    if not _genres_cache:
+        _genres_cache.extend(await md.genres())
+    return _genres_cache
 
 
 @app.get("/api/manga/{manga_id}")

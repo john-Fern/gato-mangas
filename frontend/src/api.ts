@@ -25,6 +25,7 @@ export type Chapter = {
   external_url: string | null
 }
 
+export type Genre = { id: string; name: string }
 export type Page<T> = { items: T[]; total: number }
 export type Favorite = { manga_id: string; title: string; cover_url: string | null }
 export type Progress = { chapter_id: string; chapter_number: string | null }
@@ -42,12 +43,14 @@ export const imageUrl = (url: string | null) =>
   url ? `${API_URL}/api/image?url=${encodeURIComponent(url)}` : ''
 
 export const api = {
-  search: (q: string, type: string, offset = 0) => {
-    const params = new URLSearchParams({ offset: String(offset), limit: String(PAGE_SIZE) })
-    if (q) params.set('q', q)
-    if (type) params.set('type', type)
+  /** `filters` son los parámetros de la URL de la portada (q, type, genre, sort…). */
+  search: (filters: URLSearchParams, offset = 0) => {
+    const params = new URLSearchParams(filters)
+    params.set('offset', String(offset))
+    params.set('limit', String(PAGE_SIZE))
     return request<Page<Manga>>(`/api/manga?${params}`)
   },
+  genres: () => request<Genre[]>('/api/genres'),
   manga: (id: string) => request<Manga>(`/api/manga/${id}`),
   chapters: (id: string, lang: string) =>
     request<Page<Chapter>>(`/api/manga/${id}/chapters?lang=${lang}&limit=500`),

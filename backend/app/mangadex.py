@@ -6,6 +6,41 @@ API_URL = "https://api.mangadex.org"
 COVERS_URL = "https://uploads.mangadex.org/covers"
 TYPES = {"ja": "manga", "ko": "manhwa", "zh": "manhua", "zh-hk": "manhua"}
 LANGS_BY_TYPE = {t: [lang for lang, x in TYPES.items() if x == t] for t in set(TYPES.values())}
+SORTS = {
+    "relevance": ("relevance", "desc"),
+    "popular": ("followedCount", "desc"),
+    "latest": ("latestUploadedChapter", "desc"),
+    "rating": ("rating", "desc"),
+    "new": ("createdAt", "desc"),
+    "title": ("title", "asc"),
+}
+GENRES_ES = {
+    "Action": "Acción",
+    "Adventure": "Aventura",
+    "Boys' Love": "Boys' Love (BL)",
+    "Comedy": "Comedia",
+    "Crime": "Crimen",
+    "Drama": "Drama",
+    "Fantasy": "Fantasía",
+    "Girls' Love": "Girls' Love (GL)",
+    "Historical": "Histórico",
+    "Horror": "Terror",
+    "Isekai": "Isekai",
+    "Magical Girls": "Chicas mágicas",
+    "Mecha": "Mecha",
+    "Medical": "Médico",
+    "Mystery": "Misterio",
+    "Philosophical": "Filosófico",
+    "Psychological": "Psicológico",
+    "Romance": "Romance",
+    "Sci-Fi": "Ciencia ficción",
+    "Slice of Life": "Recuentos de la vida",
+    "Sports": "Deportes",
+    "Superhero": "Superhéroes",
+    "Thriller": "Suspenso",
+    "Tragedy": "Tragedia",
+    "Wuxia": "Wuxia",
+}
 CONTENT_RATINGS = ["safe", "suggestive"]
 PREFERRED_LANGS = ["es", "es-la", "en"]
 
@@ -64,24 +99,40 @@ class MangaDexClient:
         res.raise_for_status()
         return res.json()
 
-    async def search(
-        self, query: str | None, limit: int, offset: int, type_: str | None = None
-    ) -> dict:
-        params = {
-            "limit": limit,
-            "offset": offset,
+    async def search(self, f) -> dict:
+        """`f` es un MangaFilters (ver main.py)."""
+        params: dict = {
+            "limit": f.limit,
+            "offset": f.offset,
             "includes[]": "cover_art",
             "contentRating[]": CONTENT_RATINGS,
         }
-        if type_:
-            params["originalLanguage[]"] = LANGS_BY_TYPE[type_]
-        if query:
-            params["title"] = query
-            params["order[relevance]"] = "desc"
-        else:
-            params["order[followedCount]"] = "desc"
+        if f.q:
+            params["title"] = f.q
+        if f.type:
+            params["originalLanguage[]"] = LANGS_BY_TYPE[f.type]
+        if f.genre:
+            params["includedTags[]"] = f.genre
+        if f.status:
+            params["status[]"] = [f.status]
+        if f.demographic:
+            params["publicationDemographic[]"] = [f.demographic]
+        if f.lang:
+            params["availableTranslatedLanguage[]"] = [f.lang]
+        field, direction = SORTS[f.sort or ("relevance" if f.q else "popular")]
+        params[f"order[{field}]"] = direction
         body = await self._get("/manga", params)
         return {"items": [normalize_manga(m) for m in body["data"]], "total": body["total"]}
+
+    async def genres(self) -> list[dict]:
+        body = await self._get("/manga/tag")
+        genres = [
+            {"id": t["id"], "name": GENRES_ES.get(name, name)}
+            for t in body["data"]
+            if t["attributes"]["group"] == "genre"
+            for name in [t["attributes"]["name"]["en"]]
+        ]
+        return sorted(genres, key=lambda g: g["name"])
 
     async def manga(self, manga_id: str) -> dict:
         body = await self._get(f"/manga/{manga_id}", {"includes[]": "cover_art"})

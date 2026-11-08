@@ -173,3 +173,64 @@ def test_pagination_params_are_forwarded(client, mangadex_routes):
     seen = _capture(mangadex_routes)
     client.get("/api/manga", params={"offset": 48, "limit": 24})
     assert (seen["params"]["offset"], seen["params"]["limit"]) == ("48", "24")
+
+
+def test_all_filters_map_to_mangadex_params(client, mangadex_routes):
+    seen = _capture(mangadex_routes)
+    res = client.get(
+        "/api/manga",
+        params=[
+            ("type", "manhwa"),
+            ("genre", "g1"),
+            ("genre", "g2"),
+            ("status", "completed"),
+            ("demographic", "seinen"),
+            ("sort", "latest"),
+            ("lang", "es"),
+        ],
+    )
+    assert res.status_code == 200
+    p = seen["params"]
+    assert p.get_list("originalLanguage[]") == ["ko"]
+    assert p.get_list("includedTags[]") == ["g1", "g2"]
+    assert p.get_list("status[]") == ["completed"]
+    assert p.get_list("publicationDemographic[]") == ["seinen"]
+    assert p["order[latestUploadedChapter]"] == "desc"
+    assert p.get_list("availableTranslatedLanguage[]") == ["es"]
+
+
+def test_query_sorts_by_relevance_by_default(client, mangadex_routes):
+    seen = _capture(mangadex_routes)
+    client.get("/api/manga", params={"q": "solo"})
+    assert seen["params"]["order[relevance]"] == "desc"
+    assert "order[followedCount]" not in seen["params"]
+
+
+def test_explicit_sort_overrides_relevance(client, mangadex_routes):
+    seen = _capture(mangadex_routes)
+    client.get("/api/manga", params={"q": "solo", "sort": "rating"})
+    assert seen["params"]["order[rating]"] == "desc"
+    assert "order[relevance]" not in seen["params"]
+
+
+def test_invalid_sort_is_rejected(client):
+    assert client.get("/api/manga", params={"sort": "random"}).status_code == 422
+
+
+def test_genres_lists_only_genres_in_spanish(client, mangadex_routes):
+    def tag(id_, name, group):
+        return {"id": id_, "attributes": {"name": {"en": name}, "group": group}}
+
+    mangadex_routes["/manga/tag"] = {
+        "data": [
+            tag("t1", "Romance", "genre"),
+            tag("t2", "Action", "genre"),
+            tag("t3", "Zombies", "theme"),
+            tag("t4", "Wuxia", "genre"),
+        ]
+    }
+    assert client.get("/api/genres").json() == [
+        {"id": "t2", "name": "Acción"},
+        {"id": "t1", "name": "Romance"},
+        {"id": "t4", "name": "Wuxia"},
+    ]

@@ -1,22 +1,15 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api, PAGE_SIZE, type Manga } from '../api'
+import Filters from '../Filters'
 import MangaCard from '../MangaCard'
-
-const TYPES = [
-  ['', 'Todos'],
-  ['manga', 'Manga'],
-  ['manhwa', 'Manhwa'],
-  ['manhua', 'Manhua'],
-] as const
 
 type Loaded = { key: string; page: number; items: Manga[]; total: number }
 
 export default function Home() {
   const [params, setParams] = useSearchParams()
   const q = params.get('q') ?? ''
-  const type = params.get('type') ?? ''
-  const key = `${q}|${type}`
+  const key = params.toString()
 
   // Página pedida (por búsqueda/filtro) y lo ya cargado; si cambia el filtro se vuelve a la 0.
   const [wanted, setWanted] = useState({ key, page: 0 })
@@ -30,7 +23,7 @@ export default function Home() {
 
   useEffect(() => {
     let stale = false
-    api.search(q, type, page * PAGE_SIZE).then(
+    api.search(params, page * PAGE_SIZE).then(
       (r) => {
         if (stale) return
         setLoaded((prev) => {
@@ -45,7 +38,7 @@ export default function Home() {
     return () => {
       stale = true
     }
-  }, [q, type, key, page])
+  }, [params, key, page])
 
   useEffect(() => {
     if (loading || !hasMore || !sentinel.current) return
@@ -57,14 +50,16 @@ export default function Home() {
     return () => observer.disconnect()
   }, [loading, hasMore, key, page])
 
-  function update(next: { q?: string; type?: string }) {
-    const merged = { q, type, ...next }
-    setParams(Object.fromEntries(Object.entries(merged).filter(([, v]) => v)))
+  function update(name: string, value: string) {
+    const next = new URLSearchParams(params)
+    if (value) next.set(name, value)
+    else next.delete(name)
+    setParams(next)
   }
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    update({ q: new FormData(e.currentTarget).get('q') as string })
+    update('q', new FormData(e.currentTarget).get('q') as string)
   }
 
   return (
@@ -73,18 +68,7 @@ export default function Home() {
         <input name="q" defaultValue={q} placeholder="Buscar manga, manhwa, manhua…" />
         <button>Buscar</button>
       </form>
-      <div className="filters">
-        {TYPES.map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={type === value}
-            onClick={() => update({ type: value })}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <Filters params={params} onChange={update} />
       <h2>{q ? `Resultados para “${q}”` : 'Populares'}</h2>
       {error && <p className="error">{error}</p>}
       {current?.items.length === 0 && <p>Sin resultados.</p>}
