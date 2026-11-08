@@ -40,9 +40,12 @@ En `main`, si todo pasa:
 |-----|----------|-------------------------|
 | `deploy-frontend` | Publica `frontend/dist` en GitHub Pages | Settings → Pages → Source: *GitHub Actions*. Variables: `VITE_API_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` |
 | `deploy-database` | `supabase db push` de las migraciones | Secrets: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`. Variable: `SUPABASE_PROJECT_REF` |
-| `deploy-backend` | Dispara el deploy en Render (`render.yaml`) | Secret: `RENDER_DEPLOY_HOOK` |
+| `deploy-backend` | Dispara el deploy en Render con un deploy hook | Secret: `RENDER_DEPLOY_HOOK` (opcional) |
 
 Los jobs de deploy se saltan (con un aviso) si falta su configuración.
+
+**Backend en Render:** la forma recomendada es activar en el servicio *Settings → Auto-Deploy → After CI Checks Pass*.
+Así Render despliega cada push a `main` solo cuando este workflow pasa, sin necesitar `RENDER_DEPLOY_HOOK`.
 Recuerda poner la URL de GitHub Pages en `CORS_ORIGINS` del backend.
 
 ## Forma de trabajo (XP)
