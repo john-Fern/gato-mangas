@@ -12,20 +12,49 @@ const savedLang = () => {
 
 const PER_PAGE = 100
 
+/** Páginas a mostrar: primera, última y vecinas de la actual; el resto se resume con "…". */
+function pageList(page: number, pages: number): (number | '…')[] {
+  const keep = [...new Set([0, page - 1, page, page + 1, pages - 1])]
+    .filter((p) => p >= 0 && p < pages)
+    .sort((a, b) => a - b)
+  const out: (number | '…')[] = []
+  keep.forEach((p, i) => {
+    const gap = i > 0 ? p - keep[i - 1] : 1
+    if (gap === 2) out.push(p - 1) // un solo hueco: mejor mostrar el número
+    else if (gap > 2) out.push('…')
+    out.push(p)
+  })
+  return out
+}
+
 function Pager({ page, pages, onChange }: { page: number; pages: number; onChange: (p: number) => void }) {
   if (pages <= 1) return null
   return (
-    <div className="pager">
+    <nav className="pager" aria-label="Páginas de capítulos">
       <button disabled={page === 0} onClick={() => onChange(page - 1)}>
         ← Anterior
       </button>
-      <span>
-        Página {page + 1} de {pages}
-      </span>
+      {pageList(page, pages).map((p, i) =>
+        p === '…' ? (
+          <span key={`gap${i}`} className="gap">
+            …
+          </span>
+        ) : (
+          <button
+            key={p}
+            className="num"
+            aria-label={`Página ${p + 1}`}
+            aria-current={p === page ? 'page' : undefined}
+            onClick={() => onChange(p)}
+          >
+            {p + 1}
+          </button>
+        ),
+      )}
       <button disabled={page === pages - 1} onClick={() => onChange(page + 1)}>
         Siguiente →
       </button>
-    </div>
+    </nav>
   )
 }
 
@@ -33,7 +62,7 @@ export default function MangaPage() {
   const { id = '' } = useParams()
   const session = useSession()
   const [manga, setManga] = useState<Manga | null>(null)
-  const [loaded, setLoaded] = useState<{ key: string; items: Chapter[] } | null>(null)
+  const [loaded, setLoaded] = useState<{ key: string; items: Chapter[]; unavailable: number } | null>(null)
   const [lang, setLang] = useState(savedLang)
   const [favorite, setFavorite] = useState(false)
   const [progress, setProgress] = useState<Progress | null>(null)
@@ -46,7 +75,9 @@ export default function MangaPage() {
   }, [id])
 
   useEffect(() => {
-    api.chapters(id, lang).then((r) => setLoaded({ key: id + lang, items: r.items }))
+    api.chapters(id, lang).then((r) =>
+      setLoaded({ key: id + lang, items: r.items, unavailable: r.unavailable ?? 0 }),
+    )
   }, [id, lang])
 
   useEffect(() => {
@@ -66,7 +97,8 @@ export default function MangaPage() {
     setLang(value)
   }
 
-  const chapters = loaded?.key === id + lang ? loaded.items : null
+  const current = loaded?.key === id + lang ? loaded : null
+  const chapters = current?.items ?? null
   const page = paging.key === id + lang ? paging.page : 0
   const pages = Math.ceil((chapters?.length ?? 0) / PER_PAGE)
   const visible = chapters?.slice(page * PER_PAGE, (page + 1) * PER_PAGE)
@@ -111,6 +143,12 @@ export default function MangaPage() {
         </select>
         {!chapters && <p>Cargando…</p>}
         {chapters?.length === 0 && <p>No hay capítulos en este idioma.</p>}
+        {!!current?.unavailable && (
+          <p className="notice info">
+            MangaDex retiró {current.unavailable} capítulos subidos en este idioma (normalmente por
+            derechos de autor), así que no se pueden leer aquí.
+          </p>
+        )}
         <Pager page={page} pages={pages} onChange={goToPage} />
         <ul aria-label="Capítulos">
           {visible?.map((c) => (

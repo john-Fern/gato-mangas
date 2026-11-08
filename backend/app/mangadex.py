@@ -158,23 +158,27 @@ class MangaDexClient:
 
     async def chapters(self, manga_id: str, lang: str) -> dict:
         """Todos los capítulos en el idioma pedido, uno por número de capítulo."""
+        base = {"translatedLanguage[]": CHAPTER_LANGS[lang], "contentRating[]": CONTENT_RATINGS}
         found: list[dict] = []
         offset = 0
         while True:
-            params = {
-                "translatedLanguage[]": CHAPTER_LANGS[lang],
-                "order[chapter]": "asc",
-                "limit": FEED_PAGE,
-                "offset": offset,
-                "contentRating[]": CONTENT_RATINGS,
-            }
+            params = {**base, "order[chapter]": "asc", "limit": FEED_PAGE, "offset": offset}
             body = await self._get(f"/manga/{manga_id}/feed", params)
             found += [normalize_chapter(c) for c in body["data"]]
             offset += FEED_PAGE
             if offset >= min(body["total"], MAX_OFFSET):
                 break
+        # MangaDex oculta los capítulos retirados (p. ej. por derechos de autor); solo los contamos
+        # para poder explicarle al usuario por qué faltan.
+        with_removed = await self._get(
+            f"/manga/{manga_id}/feed", {**base, "includeUnavailable": 1, "limit": 1, "offset": 0}
+        )
         items = _one_per_number(found)
-        return {"items": items, "total": len(items)}
+        return {
+            "items": items,
+            "total": len(items),
+            "unavailable": max(with_removed["total"] - body["total"], 0),
+        }
 
     async def pages(self, chapter_id: str) -> list[str]:
         body = await self._get(f"/at-home/server/{chapter_id}")

@@ -107,7 +107,21 @@ def test_spanish_includes_spain_and_latam(client, mangadex_routes):
             }
         ],
         "total": 1,
+        "unavailable": 0,
     }
+
+
+def test_counts_chapters_removed_by_mangadex(client, mangadex_routes):
+    def handler(request):
+        if request.url.params.get("includeUnavailable") == "1":
+            return httpx.Response(200, json={"data": [], "total": 10})
+        return httpx.Response(
+            200, json={"data": [_chapter("c1", "1"), _chapter("c2", "2")], "total": 2}
+        )
+
+    mangadex_routes["/manga/m1/feed"] = handler
+    body = client.get("/api/manga/m1/chapters", params={"lang": "es"}).json()
+    assert (body["total"], body["unavailable"]) == (2, 8)
 
 
 def test_chapters_fetch_every_page(client, mangadex_routes):

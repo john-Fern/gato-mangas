@@ -106,8 +106,12 @@ input:focus, select:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px
 .chapters li a { display: block; padding: 11px 16px; text-decoration: none; }
 .chapters li a:hover { background: var(--line); }
 .pager { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 12px 0; }
-.pager span { color: var(--muted); font-size: 0.9rem; min-width: 110px; text-align: center; }
+.pager { flex-wrap: wrap; gap: 6px; }
 .pager button { margin: 0; }
+.pager button.num { background: var(--card); color: var(--fg); border: 1px solid var(--line); min-width: 40px; padding: 8px 10px; }
+.pager button.num[aria-current='page'] { background: var(--gradient); color: #fff; border-color: transparent; }
+.pager .gap { color: var(--muted); padding: 0 4px; }
+.notice.info { background: rgb(217 49 138 / 0.1); color: var(--fg); margin: 8px 0; }
 .description { white-space: pre-line; color: var(--muted); }
 .meta { color: var(--muted); }
 
