@@ -3,6 +3,8 @@ import { supabase } from './supabase'
 // `||` y no `??`: en CI una variable no definida llega como string vacío
 export const API_URL: string = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
+export const PAGE_SIZE = 24
+
 export type Manga = {
   id: string
   title: string
@@ -40,8 +42,12 @@ export const imageUrl = (url: string | null) =>
   url ? `${API_URL}/api/image?url=${encodeURIComponent(url)}` : ''
 
 export const api = {
-  search: (q: string) =>
-    request<Page<Manga>>(`/api/manga${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  search: (q: string, type: string, offset = 0) => {
+    const params = new URLSearchParams({ offset: String(offset), limit: String(PAGE_SIZE) })
+    if (q) params.set('q', q)
+    if (type) params.set('type', type)
+    return request<Page<Manga>>(`/api/manga?${params}`)
+  },
   manga: (id: string) => request<Manga>(`/api/manga/${id}`),
   chapters: (id: string, lang: string) =>
     request<Page<Chapter>>(`/api/manga/${id}/chapters?lang=${lang}&limit=500`),

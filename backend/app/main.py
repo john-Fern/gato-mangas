@@ -1,5 +1,6 @@
 import os
 from collections.abc import AsyncIterator, Iterator
+from typing import Literal
 from urllib.parse import urlparse
 
 import httpx
@@ -69,11 +70,12 @@ def health():
 @app.get("/api/manga")
 async def search(
     q: str | None = None,
+    type: Literal["manga", "manhwa", "manhua"] | None = None,
     limit: int = Query(24, le=100),
-    offset: int = 0,
+    offset: int = Query(0, ge=0, le=9900),
     md: MangaDexClient = Depends(get_mangadex),
 ):
-    return await md.search(q, limit, offset)
+    return await md.search(q, limit, offset, type)
 
 
 @app.get("/api/manga/{manga_id}")

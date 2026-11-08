@@ -5,6 +5,7 @@ import httpx
 API_URL = "https://api.mangadex.org"
 COVERS_URL = "https://uploads.mangadex.org/covers"
 TYPES = {"ja": "manga", "ko": "manhwa", "zh": "manhua", "zh-hk": "manhua"}
+LANGS_BY_TYPE = {t: [lang for lang, x in TYPES.items() if x == t] for t in set(TYPES.values())}
 CONTENT_RATINGS = ["safe", "suggestive"]
 PREFERRED_LANGS = ["es", "es-la", "en"]
 
@@ -63,13 +64,17 @@ class MangaDexClient:
         res.raise_for_status()
         return res.json()
 
-    async def search(self, query: str | None, limit: int, offset: int) -> dict:
+    async def search(
+        self, query: str | None, limit: int, offset: int, type_: str | None = None
+    ) -> dict:
         params = {
             "limit": limit,
             "offset": offset,
             "includes[]": "cover_art",
             "contentRating[]": CONTENT_RATINGS,
         }
+        if type_:
+            params["originalLanguage[]"] = LANGS_BY_TYPE[type_]
         if query:
             params["title"] = query
             params["order[relevance]"] = "desc"

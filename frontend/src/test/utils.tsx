@@ -24,3 +24,23 @@ export function renderRoute(path: string, pattern: string, element: ReactElement
     </MemoryRouter>,
   )
 }
+
+/** IntersectionObserver falso: `scrollToBottom()` simula que el sentinela entra en pantalla. */
+let observers: IntersectionObserverCallback[] = []
+export function mockIntersectionObserver() {
+  observers = []
+  vi.stubGlobal(
+    'IntersectionObserver',
+    class {
+      constructor(cb: IntersectionObserverCallback) {
+        observers.push(cb)
+      }
+      observe() {}
+      disconnect() {}
+    },
+  )
+}
+export function scrollToBottom() {
+  const entry = { isIntersecting: true } as IntersectionObserverEntry
+  observers.at(-1)?.([entry], {} as IntersectionObserver)
+}

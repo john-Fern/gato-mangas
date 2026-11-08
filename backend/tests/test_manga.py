@@ -140,3 +140,36 @@ def test_image_proxy_streams_allowed_host(client, mangadex_routes):
 
 def test_root_points_to_docs(client):
     assert client.get("/").json() == {"name": "Gato Mangas API", "docs": "/docs"}
+
+
+def _capture(mangadex_routes):
+    seen = {}
+
+    def handler(request):
+        seen["params"] = request.url.params
+        return httpx.Response(200, json={"data": [], "total": 0})
+
+    mangadex_routes["/manga"] = handler
+    return seen
+
+
+def test_filter_by_type_maps_to_original_language(client, mangadex_routes):
+    seen = _capture(mangadex_routes)
+    client.get("/api/manga", params={"type": "manhua", "q": "x"})
+    assert seen["params"].get_list("originalLanguage[]") == ["zh", "zh-hk"]
+
+
+def test_without_type_does_not_filter_language(client, mangadex_routes):
+    seen = _capture(mangadex_routes)
+    client.get("/api/manga")
+    assert seen["params"].get_list("originalLanguage[]") == []
+
+
+def test_invalid_type_is_rejected(client):
+    assert client.get("/api/manga", params={"type": "novela"}).status_code == 422
+
+
+def test_pagination_params_are_forwarded(client, mangadex_routes):
+    seen = _capture(mangadex_routes)
+    client.get("/api/manga", params={"offset": 48, "limit": 24})
+    assert (seen["params"]["offset"], seen["params"]["limit"]) == ("48", "24")
