@@ -71,33 +71,36 @@ def test_get_manga_not_found(client):
     assert client.get("/api/manga/nope").status_code == 404
 
 
-def test_chapters_filtered_by_language(client, mangadex_routes):
+def _chapter(id_, number, lang="es", external=None):
+    return {
+        "id": id_,
+        "attributes": {
+            "chapter": number,
+            "title": None,
+            "translatedLanguage": lang,
+            "pages": 0 if external else 20,
+            "externalUrl": external,
+        },
+    }
+
+
+def test_spanish_includes_spain_and_latam(client, mangadex_routes):
     seen = {}
 
     def handler(request):
         seen["langs"] = request.url.params.get_list("translatedLanguage[]")
-        chapter = {
-            "id": "c1",
-            "attributes": {
-                "chapter": "1",
-                "title": "Inicio",
-                "translatedLanguage": "es",
-                "pages": 20,
-                "externalUrl": None,
-            },
-        }
-        return httpx.Response(200, json={"data": [chapter], "total": 1})
+        return httpx.Response(200, json={"data": [_chapter("c1", "1")], "total": 1})
 
     mangadex_routes["/manga/m1/feed"] = handler
     res = client.get("/api/manga/m1/chapters", params={"lang": "es"})
 
-    assert seen["langs"] == ["es"]
+    assert seen["langs"] == ["es", "es-la"]
     assert res.json() == {
         "items": [
             {
                 "id": "c1",
                 "number": "1",
-                "title": "Inicio",
+                "title": None,
                 "language": "es",
                 "pages": 20,
                 "external_url": None,
@@ -105,6 +108,41 @@ def test_chapters_filtered_by_language(client, mangadex_routes):
         ],
         "total": 1,
     }
+
+
+def test_chapters_fetch_every_page(client, mangadex_routes):
+    all_chapters = [_chapter(f"c{i}", str(i)) for i in range(1, 1201)]
+
+    def handler(request):
+        offset, limit = int(request.url.params["offset"]), int(request.url.params["limit"])
+        page = all_chapters[offset : offset + limit]
+        return httpx.Response(200, json={"data": page, "total": len(all_chapters)})
+
+    mangadex_routes["/manga/m1/feed"] = handler
+    body = client.get("/api/manga/m1/chapters", params={"lang": "en"}).json()
+
+    assert body["total"] == 1200
+    assert [c["number"] for c in body["items"]][-1] == "1200"
+
+
+def test_one_entry_per_chapter_preferring_readable(client, mangadex_routes):
+    mangadex_routes["/manga/m1/feed"] = {
+        "data": [
+            _chapter("ext", "1", external="https://example.com/1"),
+            _chapter("es1", "1"),
+            _chapter("la1", "1", lang="es-la"),
+            _chapter("o1", None),
+            _chapter("o2", None),
+            _chapter("ext2", "2", external="https://example.com/2"),
+        ],
+        "total": 6,
+    }
+    body = client.get("/api/manga/m1/chapters", params={"lang": "es"}).json()
+    assert [c["id"] for c in body["items"]] == ["es1", "o1", "o2", "ext2"]
+
+
+def test_unsupported_chapter_language_is_rejected(client):
+    assert client.get("/api/manga/m1/chapters", params={"lang": "fr"}).status_code == 422
 
 
 def test_chapter_pages_are_proxied(client, mangadex_routes):
@@ -196,7 +234,7 @@ def test_all_filters_map_to_mangadex_params(client, mangadex_routes):
     assert p.get_list("status[]") == ["completed"]
     assert p.get_list("publicationDemographic[]") == ["seinen"]
     assert p["order[latestUploadedChapter]"] == "desc"
-    assert p.get_list("availableTranslatedLanguage[]") == ["es"]
+    assert p.get_list("availableTranslatedLanguage[]") == ["es", "es-la"]
 
 
 def test_query_sorts_by_relevance_by_default(client, mangadex_routes):

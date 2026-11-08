@@ -74,7 +74,7 @@ class MangaFilters(BaseModel):
     status: Literal["ongoing", "completed", "hiatus", "cancelled"] | None = None
     demographic: Literal["shounen", "shoujo", "seinen", "josei"] | None = None
     sort: Literal["relevance", "popular", "latest", "rating", "new", "title"] | None = None
-    lang: Literal["es", "es-la", "en"] | None = None
+    lang: Literal["es", "en"] | None = None
     limit: int = Field(24, le=100)
     offset: int = Field(0, ge=0, le=9900)  # MangaDex no pagina más allá de 10.000
 
@@ -105,12 +105,10 @@ async def manga(manga_id: str, md: MangaDexClient = Depends(get_mangadex)):
 @app.get("/api/manga/{manga_id}/chapters")
 async def chapters(
     manga_id: str,
-    lang: str = "es",
-    limit: int = Query(100, le=500),
-    offset: int = 0,
+    lang: Literal["es", "en"] = "es",
     md: MangaDexClient = Depends(get_mangadex),
 ):
-    return await md.chapters(manga_id, lang, limit, offset)
+    return await md.chapters(manga_id, lang)
 
 
 @app.get("/api/chapters/{chapter_id}/pages")

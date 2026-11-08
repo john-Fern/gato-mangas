@@ -3,14 +3,19 @@ import { Link, useParams } from 'react-router-dom'
 import { api, chapterLabel, imageUrl, type Chapter, type Manga, type Progress } from '../api'
 import { useSession } from '../supabase'
 
-const LANGS = { es: 'Español', 'es-la': 'Español (LatAm)', en: 'Inglés' }
+// "Español" incluye España y Latinoamérica (el backend junta ambos).
+const LANGS: Record<string, string> = { es: 'Español', en: 'Inglés' }
+const savedLang = () => {
+  const lang = localStorage.getItem('lang') ?? 'es'
+  return lang in LANGS ? lang : 'es'
+}
 
 export default function MangaPage() {
   const { id = '' } = useParams()
   const session = useSession()
   const [manga, setManga] = useState<Manga | null>(null)
   const [loaded, setLoaded] = useState<{ key: string; items: Chapter[] } | null>(null)
-  const [lang, setLang] = useState(localStorage.getItem('lang') ?? 'es')
+  const [lang, setLang] = useState(savedLang)
   const [favorite, setFavorite] = useState(false)
   const [progress, setProgress] = useState<Progress | null>(null)
 

@@ -53,7 +53,7 @@ export const api = {
   genres: () => request<Genre[]>('/api/genres'),
   manga: (id: string) => request<Manga>(`/api/manga/${id}`),
   chapters: (id: string, lang: string) =>
-    request<Page<Chapter>>(`/api/manga/${id}/chapters?lang=${lang}&limit=500`),
+    request<Page<Chapter>>(`/api/manga/${id}/chapters?lang=${lang}`),
   pages: (chapterId: string) => request<{ pages: string[] }>(`/api/chapters/${chapterId}/pages`),
   favorites: () => request<Favorite[]>('/api/me/favorites'),
   addFavorite: (m: Manga) =>

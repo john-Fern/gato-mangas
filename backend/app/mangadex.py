@@ -45,6 +45,24 @@ CONTENT_RATINGS = ["safe", "suggestive"]
 PREFERRED_LANGS = ["es", "es-la", "en"]
 
 
+# "Español" junta España (es) y Latinoamérica (es-la): MangaDex los separa.
+CHAPTER_LANGS = {"es": ["es", "es-la"], "en": ["en"]}
+FEED_PAGE = 500  # máximo que acepta MangaDex por página
+MAX_OFFSET = 10_000  # MangaDex no pagina más allá
+
+
+def _one_per_number(chapters: list[dict]) -> list[dict]:
+    """Un capítulo por número (varios grupos suben el mismo); prefiere los legibles aquí."""
+    best: dict[str, dict] = {}
+    for c in chapters:
+        if c["number"] is None:
+            continue
+        current = best.get(c["number"])
+        if current is None or (current["external_url"] and not c["external_url"]):
+            best[c["number"]] = c
+    return [c for c in chapters if c["number"] is None or best[c["number"]] is c]
+
+
 class NotFound(Exception):
     pass
 
@@ -118,7 +136,7 @@ class MangaDexClient:
         if f.demographic:
             params["publicationDemographic[]"] = [f.demographic]
         if f.lang:
-            params["availableTranslatedLanguage[]"] = [f.lang]
+            params["availableTranslatedLanguage[]"] = CHAPTER_LANGS[f.lang]
         field, direction = SORTS[f.sort or ("relevance" if f.q else "popular")]
         params[f"order[{field}]"] = direction
         body = await self._get("/manga", params)
@@ -138,16 +156,25 @@ class MangaDexClient:
         body = await self._get(f"/manga/{manga_id}", {"includes[]": "cover_art"})
         return normalize_manga(body["data"])
 
-    async def chapters(self, manga_id: str, lang: str, limit: int, offset: int) -> dict:
-        params = {
-            "translatedLanguage[]": [lang],
-            "order[chapter]": "asc",
-            "limit": limit,
-            "offset": offset,
-            "contentRating[]": CONTENT_RATINGS,
-        }
-        body = await self._get(f"/manga/{manga_id}/feed", params)
-        return {"items": [normalize_chapter(c) for c in body["data"]], "total": body["total"]}
+    async def chapters(self, manga_id: str, lang: str) -> dict:
+        """Todos los capítulos en el idioma pedido, uno por número de capítulo."""
+        found: list[dict] = []
+        offset = 0
+        while True:
+            params = {
+                "translatedLanguage[]": CHAPTER_LANGS[lang],
+                "order[chapter]": "asc",
+                "limit": FEED_PAGE,
+                "offset": offset,
+                "contentRating[]": CONTENT_RATINGS,
+            }
+            body = await self._get(f"/manga/{manga_id}/feed", params)
+            found += [normalize_chapter(c) for c in body["data"]]
+            offset += FEED_PAGE
+            if offset >= min(body["total"], MAX_OFFSET):
+                break
+        items = _one_per_number(found)
+        return {"items": items, "total": len(items)}
 
     async def pages(self, chapter_id: str) -> list[str]:
         body = await self._get(f"/at-home/server/{chapter_id}")

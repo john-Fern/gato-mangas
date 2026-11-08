@@ -14,4 +14,12 @@ describe('MangaPage', () => {
       '/read/m1/c1?lang=es',
     )
   })
+  it('usa español si había guardado un idioma que ya no existe', async () => {
+    localStorage.setItem('lang', 'es-la')
+    const fetchMock = mockFetch({ '/chapters': chapters, '/api/manga/m1': manga })
+    renderRoute('/manga/m1', '/manga/:id', <MangaPage />)
+    await screen.findByRole('heading', { name: 'Solo Hero' })
+    expect(fetchMock.mock.calls.some((c) => String(c[0]).includes('chapters?lang=es'))).toBe(true)
+    expect(screen.getByLabelText('Idioma')).toHaveValue('es')
+  })
 })
