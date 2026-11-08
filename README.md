@@ -46,6 +46,7 @@ Los jobs de deploy se saltan (con un aviso) si falta su configuración.
 
 **Backend en Render:** la forma recomendada es activar en el servicio *Settings → Auto-Deploy → After CI Checks Pass*.
 Así Render despliega cada push a `main` solo cuando este workflow pasa, sin necesitar `RENDER_DEPLOY_HOOK`.
+Con *Root Directory* = `backend`, Render solo redespliega si el push cambia archivos de `backend/`; para forzarlo usa *Manual Deploy*.
 Recuerda poner la URL de GitHub Pages en `CORS_ORIGINS` del backend.
 
 ## Forma de trabajo (XP)
