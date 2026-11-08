@@ -136,3 +136,7 @@ def test_image_proxy_streams_allowed_host(client, mangadex_routes):
     assert res.status_code == 200
     assert res.content == b"IMG"
     assert res.headers["content-type"] == "image/jpeg"
+
+
+def test_root_points_to_docs(client):
+    assert client.get("/").json() == {"name": "Gato Mangas API", "docs": "/docs"}

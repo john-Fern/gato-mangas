@@ -56,6 +56,11 @@ async def not_found(_, __):
     return Response(status_code=404)
 
 
+@app.get("/")
+def root():
+    return {"name": "Gato Mangas API", "docs": "/docs"}
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
