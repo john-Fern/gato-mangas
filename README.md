@@ -8,7 +8,9 @@ Lector web de mangas, manhwas y manhuas. Los datos vienen de la API pública de
 - **Base de datos**: PostgreSQL en Supabase (`supabase/migrations/`)
 - **Auth**: Supabase Auth (email + contraseña)
 - **Mangas propios**: los que guarda [scraper-manga](https://github.com/john-Fern/scraper-manga) en las tablas
-  `mangas`/`chapters` (ids `zonatmo-…`, `inmanga-…`) se muestran junto a los de MangaDex (`backend/app/local.py`)
+  `mangas`/`chapters` (ids `zonatmo-…`, `inmanga-…`) se muestran junto a los de MangaDex (`backend/app/local.py`).
+  Como no tienen valoración ni popularidad, van **al final** de los resultados (después de todo MangaDex);
+  se encuentran rápido buscándolos por nombre.
 
 ## Desarrollo local
 

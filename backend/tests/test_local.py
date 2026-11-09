@@ -1,5 +1,7 @@
 """Mangas propios (guardados por scraper-manga en Supabase) servidos junto a los de MangaDex."""
 
+import httpx
+
 CIRCLES = {
     "id": "zonatmo-18536",
     "title": "Circles",
@@ -21,11 +23,59 @@ CAP_1 = {
 EMPTY = {"data": [], "total": 0}
 
 
-def test_search_puts_local_mangas_first(client, mangadex_routes, local_catalog):
+def mangadex_with(total: int):
+    """MangaDex falso con `total` resultados (ids md0, md1…) que respeta offset y limit."""
+
+    def handler(request):
+        offset, limit = int(request.url.params["offset"]), int(request.url.params["limit"])
+        data = [
+            {"id": f"md{i}", "attributes": {"title": {"en": f"M{i}"}}}
+            for i in range(offset, min(offset + limit, total))
+        ]
+        return httpx.Response(200, json={"data": data, "total": total})
+
+    return handler
+
+
+def ids(res) -> list[str]:
+    return [m["id"] for m in res.json()["items"]]
+
+
+def test_search_puts_local_mangas_last(client, mangadex_routes, local_catalog):
+    # Sin valoración ni popularidad, los propios van después de todo MangaDex.
+    local_catalog.mangas = [CIRCLES]
+    mangadex_routes["/manga"] = mangadex_with(1)
+    res = client.get("/api/manga", params={"q": "circ"})
+    assert ids(res) == ["md0", "zonatmo-18536"]
+    assert res.json()["total"] == 2
+
+
+def test_search_only_local_when_mangadex_has_nothing(client, mangadex_routes, local_catalog):
     local_catalog.mangas = [CIRCLES]
     mangadex_routes["/manga"] = EMPTY
     res = client.get("/api/manga", params={"q": "circ"})
     assert res.json() == {"items": [CIRCLES], "total": 1}
+
+
+def test_search_local_mangas_go_on_the_last_page(client, mangadex_routes, local_catalog):
+    local_catalog.mangas = [CIRCLES]
+    mangadex_routes["/manga"] = mangadex_with(30)
+
+    first = client.get("/api/manga", params={"limit": 24})
+    assert "zonatmo-18536" not in ids(first)
+    assert first.json()["total"] == 31  # cuenta los propios para que el scroll llegue a ellos
+
+    last = client.get("/api/manga", params={"limit": 24, "offset": 24})
+    assert ids(last) == [f"md{i}" for i in range(24, 30)] + ["zonatmo-18536"]
+
+
+def test_search_local_mangas_alone_after_a_full_mangadex_page(
+    client, mangadex_routes, local_catalog
+):
+    local_catalog.mangas = [CIRCLES]
+    mangadex_routes["/manga"] = mangadex_with(24)
+    assert "zonatmo-18536" not in ids(client.get("/api/manga", params={"limit": 24}))
+    assert ids(client.get("/api/manga", params={"limit": 24, "offset": 24})) == ["zonatmo-18536"]
 
 
 def test_search_filters_local_by_query_and_type(client, mangadex_routes, local_catalog):
