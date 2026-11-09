@@ -93,16 +93,19 @@ async def search(
     catalog: LocalCatalog = Depends(get_catalog),
 ):
     result = await md.search(filters)
-    # Los mangas propios van primero, solo en la primera página y con filtros que entienden.
+    # Los mangas propios no tienen valoración ni popularidad: van al final, después de todo
+    # MangaDex, y solo con los filtros que entienden. El total los cuenta para que el scroll llegue.
     unsupported = filters.genre or filters.status or filters.demographic or filters.lang == "en"
-    if filters.offset == 0 and not unsupported:
-        try:
-            local = catalog.search(filters.q, filters.type)
-        except Exception:
-            log.exception("No se pudo buscar en el catálogo propio")
-            local = []
-        result = {"items": local + result["items"], "total": result["total"] + len(local)}
-    return result
+    if unsupported:
+        return result
+    try:
+        local = catalog.search(filters.q, filters.type)
+    except Exception:
+        log.exception("No se pudo buscar en el catálogo propio")
+        local = []
+    start = filters.offset - result["total"]  # posición de esta página dentro de los propios
+    page = local[max(start, 0) : max(start + filters.limit, 0)]
+    return {"items": result["items"] + page, "total": result["total"] + len(local)}
 
 
 _genres_cache: list[dict] = []
