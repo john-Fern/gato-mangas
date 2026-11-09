@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
-from app.local import LocalCatalog, image_referer, is_local
+from app.local import LocalCatalog, is_local
 from app.mangadex import MangaDexClient, NotFound
 
 app = FastAPI(title="Gato Mangas API")
@@ -160,10 +160,9 @@ def _allowed_image_host(url: str) -> bool:
 
 @app.get("/api/image")
 async def image(url: str, md: MangaDexClient = Depends(get_mangadex)):
-    referer = "https://mangadex.org/" if _allowed_image_host(url) else image_referer(url)
-    if not referer:
+    if not _allowed_image_host(url):
         raise HTTPException(400, "Host no permitido")
-    res = await md.image(url, referer)
+    res = await md.image(url)
     if res.status_code != 200:
         raise HTTPException(502, "No se pudo obtener la imagen")
     return Response(

@@ -8,6 +8,17 @@ describe('imageUrl', () => {
     )
   })
 
+  it('también pasa por el proxy las páginas de los servidores de MangaDex', () => {
+    expect(imageUrl('https://x.mangadex.network/1.png')).toContain('/api/image?url=')
+  })
+
+  it('carga directo las imágenes de los mangas propios (el sitio bloquea al servidor)', () => {
+    const zonatmo = 'https://storage2.zonatmo.org/chapters/1/a.webp'
+    const inmanga = 'https://cdn1.intomanga.com/i/m/x.jpg'
+    expect(imageUrl(zonatmo)).toBe(zonatmo)
+    expect(imageUrl(inmanga)).toBe(inmanga)
+  })
+
   it('devuelve vacío si no hay imagen', () => {
     expect(imageUrl(null)).toBe('')
   })

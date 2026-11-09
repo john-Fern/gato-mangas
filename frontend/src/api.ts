@@ -39,8 +39,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.status === 204 ? (undefined as T) : res.json()
 }
 
-export const imageUrl = (url: string | null) =>
-  url ? `${API_URL}/api/image?url=${encodeURIComponent(url)}` : ''
+const isMangaDex = (url: string) => {
+  const host = new URL(url).hostname
+  return host === 'uploads.mangadex.org' || host.endsWith('.mangadex.network')
+}
+
+/** MangaDex pasa por el proxy del backend; las de los mangas propios se cargan directo (sin Referer):
+ *  zonatmo bloquea al servidor y rechaza Referers de otros sitios. */
+export const imageUrl = (url: string | null) => {
+  if (!url) return ''
+  return isMangaDex(url) ? `${API_URL}/api/image?url=${encodeURIComponent(url)}` : url
+}
 
 export const api = {
   /** `filters` son los parámetros de la URL de la portada (q, type, genre, sort…). */

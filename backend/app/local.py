@@ -2,12 +2,12 @@
 
 Se reconocen por el prefijo del id (zonatmo-…, inmanga-…) y se devuelven con la misma forma
 que los de MangaDex, así el frontend no necesita saber de dónde vienen.
+Sus imágenes no pasan por el proxy: zonatmo bloquea al servidor, el navegador las carga directo.
 """
 
 import re
 from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
-from urllib.parse import urlparse
 
 import psycopg
 from psycopg.rows import dict_row
@@ -16,29 +16,11 @@ from app.mangadex import NotFound
 
 PREFIXES = ("zonatmo-", "inmanga-")
 TYPES = ("manga", "manhwa", "manhua")
-# dominio de las imágenes -> Referer que exige ese sitio
-REFERERS = {
-    "zonatmo.org": "https://zonatmo.org/",
-    "inmanga.com": "https://inmanga.com/",
-    "intomanga.com": "https://inmanga.com/",
-}
 GENERIC_TITLE = re.compile(r"^cap[ií]tulo\s+[\d.]+$", re.I)
 
 
 def is_local(manga_or_chapter_id: str) -> bool:
     return manga_or_chapter_id.startswith(PREFIXES)
-
-
-def image_referer(url: str) -> str | None:
-    """Referer para una imagen de los sitios del scraper; None si el host no está permitido."""
-    p = urlparse(url)
-    host = p.hostname or ""
-    if p.scheme != "https":
-        return None
-    for domain, referer in REFERERS.items():
-        if host == domain or host.endswith("." + domain):
-            return referer
-    return None
 
 
 def _number(n: Decimal) -> str:
