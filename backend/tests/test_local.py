@@ -1,7 +1,5 @@
 """Mangas propios (guardados por scraper-manga en Supabase) servidos junto a los de MangaDex."""
 
-import httpx
-
 CIRCLES = {
     "id": "zonatmo-18536",
     "title": "Circles",
@@ -79,26 +77,7 @@ def test_unknown_local_ids_are_404(client):
     assert client.get("/api/chapters/zonatmo-999~1/pages").status_code == 404
 
 
-def test_image_proxy_allows_scraper_hosts_with_their_referer(client, mangadex_routes):
-    seen = {}
-
-    def handler(request):
-        seen[request.url.host] = request.headers.get("referer")
-        return httpx.Response(200, content=b"IMG", headers={"content-type": "image/webp"})
-
-    mangadex_routes["/x.webp"] = handler
-    for url in (
-        "https://storage2.zonatmo.org/x.webp",
-        "https://zonatmo.org/x.webp",
-        "https://pack-yak.intomanga.com/x.webp",
-        "https://inmanga.com/x.webp",
-    ):
-        res = client.get("/api/image", params={"url": url})
-        assert res.status_code == 200, url
-    assert seen["storage2.zonatmo.org"] == "https://zonatmo.org/"
-    assert seen["inmanga.com"] == "https://inmanga.com/"
-
-
-def test_image_proxy_rejects_lookalike_hosts(client):
-    for url in ("https://zonatmo.org.evil.com/x.png", "http://zonatmo.org/x.png"):
+def test_image_proxy_is_only_for_mangadex(client):
+    # zonatmo bloquea a Render; el frontend carga esas imágenes directo desde el navegador
+    for url in ("https://storage2.zonatmo.org/x.webp", "https://cdn1.intomanga.com/x.jpg"):
         assert client.get("/api/image", params={"url": url}).status_code == 400, url

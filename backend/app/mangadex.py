@@ -185,5 +185,5 @@ class MangaDexClient:
         base, ch = body["baseUrl"], body["chapter"]
         return [f"{base}/data/{ch['hash']}/{f}" for f in ch["data"]]
 
-    async def image(self, url: str, referer: str = "https://mangadex.org/") -> httpx.Response:
-        return await self.http.get(url, headers={"Referer": referer})
+    async def image(self, url: str) -> httpx.Response:
+        return await self.http.get(url, headers={"Referer": "https://mangadex.org/"})

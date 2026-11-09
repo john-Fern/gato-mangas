@@ -45,7 +45,13 @@ export default function Reader() {
       {nav}
       {!pages && <p>Cargando…</p>}
       {pages?.map((p, i) => (
-        <img key={p} src={imageUrl(p)} alt={`Página ${i + 1}`} loading="lazy" />
+        <img
+          key={p}
+          src={imageUrl(p)}
+          alt={`Página ${i + 1}`}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
       ))}
       {nav}
     </div>

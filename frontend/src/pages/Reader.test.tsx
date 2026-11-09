@@ -15,4 +15,13 @@ describe('Reader', () => {
     const next = await screen.findAllByRole('link', { name: /siguiente/i })
     expect(next[0]).toHaveAttribute('href', '/read/m1/c2?lang=es')
   })
+
+  it('carga sin Referer las páginas de los mangas propios', async () => {
+    const page = 'https://storage.zonatmo.org/chapters/1/a.webp'
+    mockFetch({ '/api/chapters/zonatmo-1~1/pages': { pages: [page] }, '/chapters': chapters })
+    renderRoute('/read/zonatmo-1/zonatmo-1~1?lang=es', '/read/:mangaId/:chapterId', <Reader />)
+    const img = await screen.findByAltText('Página 1')
+    expect(img).toHaveAttribute('src', page)
+    expect(img).toHaveAttribute('referrerpolicy', 'no-referrer')
+  })
 })

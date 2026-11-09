@@ -112,7 +112,14 @@ export default function MangaPage() {
 
   return (
     <article className="detail">
-      {manga.cover_url && <img src={imageUrl(manga.cover_url)} alt="" className="cover" />}
+      {manga.cover_url && (
+        <img
+          src={imageUrl(manga.cover_url)}
+          alt=""
+          className="cover"
+          referrerPolicy="no-referrer"
+        />
+      )}
       <div>
         <h1>{manga.title}</h1>
         <p className="meta">
