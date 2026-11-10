@@ -70,3 +70,52 @@ def test_not_found(catalog):
     ):
         with pytest.raises(NotFound):
             call()
+
+
+def test_save_manga_and_chapters_idempotent(catalog):
+    catalog.save_manga(
+        {
+            "id": "zonatmo-99",
+            "source": "zonatmo",
+            "title": "Gachiakuta",
+            "type": "manga",
+            "url": "https://zonatmo.org/library/manga/99/gachiakuta",
+            "cover_url": "https://zonatmo.org/c.jpg",
+            "description": "Sinopsis 1",
+        }
+    )
+    # Upsert actualiza metadatos sin duplicar
+    catalog.save_manga(
+        {
+            "id": "zonatmo-99",
+            "source": "zonatmo",
+            "title": "Gachiakuta",
+            "type": "manga",
+            "url": "https://zonatmo.org/library/manga/99/gachiakuta",
+            "cover_url": "https://zonatmo.org/c2.jpg",
+            "description": "Sinopsis 2",
+        }
+    )
+    assert catalog.manga("zonatmo-99")["cover_url"] == "https://zonatmo.org/c2.jpg"
+    assert catalog.existing_chapters("zonatmo-99") == set()
+
+    catalog.save_chapter(
+        {
+            "manga_id": "zonatmo-99",
+            "number": 1.0,
+            "title": "Capítulo 1",
+            "source_url": "https://zonatmo.org/view_uploads/1",
+            "image_urls": ["https://img/1.webp", "https://img/2.webp"],
+        }
+    )
+    catalog.save_chapter(
+        {
+            "manga_id": "zonatmo-99",
+            "number": 2.5,
+            "title": "Extra",
+            "source_url": "https://zonatmo.org/view_uploads/2",
+            "image_urls": ["https://img/3.webp"],
+        }
+    )
+    assert catalog.existing_chapters("zonatmo-99") == {1.0, 2.5}
+    assert catalog.pages("zonatmo-99~1") == ["https://img/1.webp", "https://img/2.webp"]

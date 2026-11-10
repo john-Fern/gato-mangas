@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from app.local import LocalCatalog, is_local
 from app.mangadex import MangaDexClient, NotFound
+from app.scraper import InvalidMangaUrl, ScraperClient
 
 app = FastAPI(title="Gato Mangas API")
 app.add_middleware(
@@ -32,6 +33,10 @@ _http = httpx.AsyncClient(timeout=20, headers={"User-Agent": USER_AGENT})
 
 async def get_mangadex() -> AsyncIterator[MangaDexClient]:
     yield MangaDexClient(_http)
+
+
+async def get_scraper() -> AsyncIterator[ScraperClient]:
+    yield ScraperClient(_http)
 
 
 def get_conn() -> Iterator[psycopg.Connection]:
@@ -239,3 +244,42 @@ def save_progress(
         (user_id, manga_id, p.chapter_id, p.chapter_number),
     )
     conn.commit()
+
+
+# ---------- importador / scraper (ZonaTMO e InManga) ----------
+
+
+class ImportIn(BaseModel):
+    url: str
+    title: str | None = None
+    type: str | None = None
+    max_chapters: int | None = Field(default=None, ge=1)
+
+
+@app.get("/api/scraper/search")
+async def scraper_search(
+    q: str,
+    source: Literal["zonatmo", "inmanga"] = "zonatmo",
+    _user_id: str = Depends(get_user_id),
+    scraper: ScraperClient = Depends(get_scraper),
+):
+    return {"items": await scraper.search(q, source)}
+
+
+@app.post("/api/scraper/import")
+async def scraper_import(
+    body: ImportIn,
+    _user_id: str = Depends(get_user_id),
+    scraper: ScraperClient = Depends(get_scraper),
+    catalog: LocalCatalog = Depends(get_catalog),
+):
+    try:
+        return await scraper.import_manga(
+            body.url,
+            catalog,
+            title_override=body.title,
+            type_override=body.type,
+            max_chapters=body.max_chapters,
+        )
+    except InvalidMangaUrl as e:
+        raise HTTPException(400, "URL de manga no válida") from e

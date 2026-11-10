@@ -29,6 +29,21 @@ export type Genre = { id: string; name: string }
 export type Page<T> = { items: T[]; total: number }
 export type Favorite = { manga_id: string; title: string; cover_url: string | null }
 export type Progress = { chapter_id: string; chapter_number: string | null }
+export type ScraperSource = 'zonatmo' | 'inmanga'
+export type ScraperCandidate = {
+  id: string
+  source: ScraperSource
+  title: string
+  type: string
+  url: string
+}
+export type ImportResult = {
+  manga_id: string
+  title: string
+  imported: number
+  skipped: number
+  failed: number
+}
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -76,6 +91,15 @@ export const api = {
     request<void>(`/api/me/progress/${id}`, {
       method: 'PUT',
       body: JSON.stringify({ chapter_id: c.id, chapter_number: c.number }),
+    }),
+  scraperSearch: (q: string, source: ScraperSource) => {
+    const params = new URLSearchParams({ q, source })
+    return request<{ items: ScraperCandidate[] }>(`/api/scraper/search?${params}`)
+  },
+  scraperImport: (body: { url: string; title?: string; type?: string; max_chapters?: number }) =>
+    request<ImportResult>('/api/scraper/import', {
+      method: 'POST',
+      body: JSON.stringify(body),
     }),
 }
 

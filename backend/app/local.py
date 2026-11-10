@@ -97,3 +97,32 @@ class LocalCatalog:
         if not rows:
             raise NotFound(chapter_id)
         return rows[0]["image_urls"]
+
+    def existing_chapters(self, manga_id: str) -> set[float]:
+        rows = self._rows("select number from chapters where manga_id = %s", (manga_id,))
+        return {float(r["number"]) for r in rows}
+
+    def save_manga(self, manga: dict) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                "insert into mangas (id, source, title, type, url, cover_url, description)"
+                " values (%(id)s, %(source)s, %(title)s, %(type)s, %(url)s,"
+                " %(cover_url)s, %(description)s)"
+                " on conflict (id) do update set"
+                " title = excluded.title, type = excluded.type, url = excluded.url,"
+                " cover_url = excluded.cover_url, description = excluded.description",
+                manga,
+            )
+            conn.commit()
+
+    def save_chapter(self, chapter: dict) -> None:
+        with self.connect() as conn:
+            conn.execute(
+                "insert into chapters (manga_id, number, title, source_url, image_urls)"
+                " values (%(manga_id)s, %(number)s, %(title)s, %(source_url)s, %(image_urls)s)"
+                " on conflict (manga_id, number) do update set"
+                " title = excluded.title, source_url = excluded.source_url,"
+                " image_urls = excluded.image_urls",
+                chapter,
+            )
+            conn.commit()

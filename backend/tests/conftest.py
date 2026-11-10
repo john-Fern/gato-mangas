@@ -53,6 +53,44 @@ class FakeCatalog:
             raise NotFound(chapter_id)
         return self.pages_by_chapter[chapter_id]
 
+    def existing_chapters(self, manga_id: str) -> set[float]:
+        return {float(c["number"]) for c in self.chapters_by_manga.get(manga_id, [])}
+
+    def save_manga(self, manga: dict) -> None:
+        self.mangas = [m for m in self.mangas if m["id"] != manga["id"]]
+        self.mangas.append(
+            {
+                "id": manga["id"],
+                "title": manga["title"],
+                "description": manga.get("description"),
+                "cover_url": manga.get("cover_url"),
+                "type": manga.get("type")
+                if manga.get("type") in ("manga", "manhwa", "manhua")
+                else "other",
+                "status": None,
+                "year": None,
+                "tags": [],
+            }
+        )
+
+    def save_chapter(self, chapter: dict) -> None:
+        manga_id = chapter["manga_id"]
+        num_str = f"{chapter['number']:g}"
+        cid = f"{manga_id}~{num_str}"
+        items = [c for c in self.chapters_by_manga.get(manga_id, []) if c["number"] != num_str]
+        items.append(
+            {
+                "id": cid,
+                "number": num_str,
+                "title": chapter["title"],
+                "language": "es",
+                "pages": len(chapter["image_urls"]),
+                "external_url": None,
+            }
+        )
+        self.chapters_by_manga[manga_id] = sorted(items, key=lambda c: float(c["number"]))
+        self.pages_by_chapter[cid] = list(chapter["image_urls"])
+
 
 @pytest.fixture
 def local_catalog():
