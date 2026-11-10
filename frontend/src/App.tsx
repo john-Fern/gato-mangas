@@ -2,6 +2,7 @@ import { HashRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
 import Logo from './Logo'
 import Favorites from './pages/Favorites'
 import Home from './pages/Home'
+import ImportManga from './pages/ImportManga'
 import Login from './pages/Login'
 import MangaPage from './pages/MangaPage'
 import Reader from './pages/Reader'
@@ -24,6 +25,7 @@ function Header() {
             Explorar
           </NavLink>
           {session && <NavLink to="/favorites">Favoritos</NavLink>}
+          {session && <NavLink to="/import">Importar</NavLink>}
         </nav>
         <div className="account">
           {session ? (
@@ -56,6 +58,7 @@ export default function App() {
           <Route path="/manga/:id" element={<MangaPage />} />
           <Route path="/read/:mangaId/:chapterId" element={<Reader />} />
           <Route path="/favorites" element={<Favorites />} />
+          <Route path="/import" element={<ImportManga />} />
           <Route path="/login" element={<Login />} />
         </Routes>
       </main>
