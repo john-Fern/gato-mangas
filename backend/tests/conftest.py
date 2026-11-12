@@ -57,13 +57,15 @@ class FakeCatalog:
         return {float(c["number"]) for c in self.chapters_by_manga.get(manga_id, [])}
 
     def save_manga(self, manga: dict) -> None:
+        # Igual que LocalCatalog: portada y descripción existentes no se pisan
+        prev = next((m for m in self.mangas if m["id"] == manga["id"]), {})
         self.mangas = [m for m in self.mangas if m["id"] != manga["id"]]
         self.mangas.append(
             {
                 "id": manga["id"],
                 "title": manga["title"],
-                "description": manga.get("description"),
-                "cover_url": manga.get("cover_url"),
+                "description": prev.get("description") or manga.get("description") or None,
+                "cover_url": prev.get("cover_url") or manga.get("cover_url") or None,
                 "type": manga.get("type")
                 if manga.get("type") in ("manga", "manhwa", "manhua")
                 else "other",

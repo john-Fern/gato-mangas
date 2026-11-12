@@ -78,6 +78,28 @@ def _datos_obra_tmo(html: str) -> dict:
     }
 
 
+def _datos_obra_inmanga(html: str, base: str) -> dict:
+    """Portada y sinopsis de la ficha de InManga.
+
+    La portada buena es la de `cdn*.intomanga.com/i/m/…` (la de `og:image` responde 404).
+    La sinopsis es el `.panel-body` del panel cuya cabecera tiene el título (`h1`).
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    cover = None
+    for img in soup.select("img[src]"):
+        src = urljoin(base, str(img["src"]))
+        if src.startswith("https://") and "intomanga.com/i/m/" in src:
+            cover = src
+            break
+    description = None
+    h1 = soup.select_one(".panel-heading h1")
+    panel = h1.find_parent(class_="panel") if h1 else None
+    body = panel.select_one(".panel-body") if panel else None
+    if body:
+        description = " ".join(body.get_text(" ", strip=True).split()) or None
+    return {"cover_url": cover, "description": description}
+
+
 def _listar_capitulos_tmo(html: str, base: str) -> list[tuple[float | None, str, str]]:
     soup = BeautifulSoup(html, "html.parser")
     caps: list[tuple[float | None, str, str]] = []
@@ -294,6 +316,7 @@ class ScraperClient:
         datos = json.loads(r.json()["data"])
         caps = sorted(datos["result"] or [], key=lambda c: c["Number"])
         manga_id = f"inmanga-{obra['id']}"
+        ficha = await self._ficha_inmanga(obra["url"])
         catalog.save_manga(
             {
                 "id": manga_id,
@@ -301,8 +324,7 @@ class ScraperClient:
                 "title": obra["title"],
                 "type": "manga",
                 "url": obra["url"],
-                "cover_url": None,
-                "description": None,
+                **ficha,
             }
         )
         en_db = catalog.existing_chapters(manga_id)
@@ -338,6 +360,15 @@ class ScraperClient:
             "skipped": skipped,
             "failed": failed,
         }
+
+    async def _ficha_inmanga(self, url: str) -> dict:
+        """Portada y sinopsis; si la ficha no carga, se importa igual sin ellas."""
+        try:
+            r = await self.http.get(url)
+            r.raise_for_status()
+            return _datos_obra_inmanga(r.text, INMANGA_BASE)
+        except httpx.HTTPError:
+            return {"cover_url": None, "description": None}
 
     async def _listar_imagenes_inmanga(self, obra: dict, cap: dict) -> tuple[str, list[str]]:
         url_cap = (

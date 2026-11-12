@@ -78,6 +78,24 @@ INMANGA_CHAPTERS_JSON = {
     )
 }
 
+INMANGA_COVER = f"https://cdn1.intomanga.com/i/m/{INMANGA_ID}/t/o/{INMANGA_ID}.jpg"
+
+INMANGA_FICHA_HTML = f"""
+<meta property="og:image" content="https://assets.intomanga.com/thumbnails/manga/Monster/{INMANGA_ID}">
+<div class="col-xs-12 hidden-xs"><img alt="Monster" src="/cover/manga/Monster/{INMANGA_ID}"></div>
+<div class="text-center bg-center custom-bg-center"><img alt="Monster" src="{INMANGA_COVER}"></div>
+<div class="panel widget">
+  <div class="panel-body">Panel sin título, no es la sinopsis.</div>
+</div>
+<div class="panel widget">
+  <div class="panel-heading"><h1>Monster</h1><p class="text-muted"></p></div>
+  <div class="panel-body">
+      Un cirujano   brillante salva a un ni&#241;o
+      que se convierte en asesino.
+  </div>
+</div>
+"""
+
 INMANGA_VIEWER_HTML = """
 <script>var pu = 'https://pack-yak.intomanga.com/images/manga/Monster/chapter/pageNumber/page/identification';</script>
 """
@@ -291,6 +309,53 @@ def test_import_inmanga_from_chapter_only(scraper_client, scraper_routes, local_
     assert res.status_code == 200
     assert res.json()["imported"] == 1
     assert local_catalog.existing_chapters(f"inmanga-{INMANGA_ID}") == {2.0}
+
+
+def test_import_inmanga_fills_cover_and_description(scraper_client, scraper_routes, local_catalog):
+    scraper_routes["inmanga.com/chapter/getall"] = INMANGA_CHAPTERS_JSON
+    scraper_routes[f"inmanga.com/ver/manga/Monster/{INMANGA_ID}"] = INMANGA_FICHA_HTML
+
+    # Rango vacío: solo interesa la ficha de la obra
+    res = scraper_client.post("/api/scraper/import", json={"url": INMANGA_URL, "from_chapter": 99})
+    assert res.status_code == 200
+
+    manga = local_catalog.manga(f"inmanga-{INMANGA_ID}")
+    assert manga["cover_url"] == INMANGA_COVER
+    assert (
+        manga["description"] == "Un cirujano brillante salva a un niño que se convierte en asesino."
+    )
+
+
+def test_import_inmanga_without_ficha_still_imports(scraper_client, scraper_routes, local_catalog):
+    scraper_routes["inmanga.com/chapter/getall"] = INMANGA_CHAPTERS_JSON
+    # La ficha no tiene ruta (404): se importa igual, sin portada ni descripción
+
+    res = scraper_client.post("/api/scraper/import", json={"url": INMANGA_URL, "from_chapter": 99})
+    assert res.status_code == 200
+    manga = local_catalog.manga(f"inmanga-{INMANGA_ID}")
+    assert manga["cover_url"] is None and manga["description"] is None
+
+
+def test_import_keeps_existing_cover_and_description(scraper_client, scraper_routes, local_catalog):
+    local_catalog.save_manga(
+        {
+            "id": f"inmanga-{INMANGA_ID}",
+            "source": "inmanga",
+            "title": "Monster",
+            "type": "manga",
+            "url": INMANGA_URL,
+            "cover_url": "https://mi-portada.jpg",
+            "description": "Mi sinopsis",
+        }
+    )
+    scraper_routes["inmanga.com/chapter/getall"] = INMANGA_CHAPTERS_JSON
+    scraper_routes[f"inmanga.com/ver/manga/Monster/{INMANGA_ID}"] = INMANGA_FICHA_HTML
+
+    res = scraper_client.post("/api/scraper/import", json={"url": INMANGA_URL, "from_chapter": 99})
+    assert res.status_code == 200
+    manga = local_catalog.manga(f"inmanga-{INMANGA_ID}")
+    assert manga["cover_url"] == "https://mi-portada.jpg"
+    assert manga["description"] == "Mi sinopsis"
 
 
 def test_import_rejects_inverted_range(scraper_client):

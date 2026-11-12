@@ -103,15 +103,18 @@ class LocalCatalog:
         return {float(r["number"]) for r in rows}
 
     def save_manga(self, manga: dict) -> None:
+        """Crea o actualiza la obra. Portada y descripción solo se rellenan si faltan:
+        nunca se pisan las que ya existen ni se borran con un valor vacío."""
         with self.connect() as conn:
             conn.execute(
                 "insert into mangas (id, source, title, type, url, cover_url, description)"
                 " values (%(id)s, %(source)s, %(title)s, %(type)s, %(url)s,"
-                " %(cover_url)s, %(description)s)"
+                " nullif(%(cover_url)s, ''), nullif(%(description)s, ''))"
                 " on conflict (id) do update set"
                 " title = excluded.title, type = excluded.type, url = excluded.url,"
-                " cover_url = excluded.cover_url, description = excluded.description",
-                manga,
+                " cover_url = coalesce(nullif(mangas.cover_url, ''), excluded.cover_url),"
+                " description = coalesce(nullif(mangas.description, ''), excluded.description)",
+                {"cover_url": None, "description": None, **manga},
             )
             conn.commit()
 
