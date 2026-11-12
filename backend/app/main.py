@@ -9,7 +9,7 @@ import psycopg
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from psycopg.rows import dict_row
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.local import LocalCatalog, is_local
 from app.mangadex import MangaDexClient, NotFound
@@ -253,7 +253,18 @@ class ImportIn(BaseModel):
     url: str
     title: str | None = None
     type: str | None = None
-    max_chapters: int | None = Field(default=None, ge=1)
+    from_chapter: float | None = Field(default=None, ge=0)
+    to_chapter: float | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _rango_valido(self) -> "ImportIn":
+        if (
+            self.from_chapter is not None
+            and self.to_chapter is not None
+            and self.from_chapter > self.to_chapter
+        ):
+            raise ValueError("from_chapter no puede ser mayor que to_chapter")
+        return self
 
 
 @app.get("/api/scraper/search")
@@ -279,7 +290,8 @@ async def scraper_import(
             catalog,
             title_override=body.title,
             type_override=body.type,
-            max_chapters=body.max_chapters,
+            from_chapter=body.from_chapter,
+            to_chapter=body.to_chapter,
         )
     except InvalidMangaUrl as e:
         raise HTTPException(400, "URL de manga no válida") from e
