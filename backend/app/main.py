@@ -195,10 +195,13 @@ class ProgressIn(BaseModel):
 
 @app.get("/api/me/favorites")
 def list_favorites(user_id: str = Depends(get_user_id), conn=Depends(get_conn)):
+    # Los favoritos guardan una copia de la portada al marcarlos. Para los mangas propios se
+    # prefiere la portada actual del catálogo (p. ej. si se rellenó después en un re-import).
     cur = conn.cursor(row_factory=dict_row)
     return cur.execute(
-        "select manga_id, title, cover_url from favorites where user_id = %s"
-        " order by created_at desc",
+        "select f.manga_id, f.title, coalesce(nullif(m.cover_url, ''), f.cover_url) as cover_url"
+        " from favorites f left join mangas m on m.id = f.manga_id"
+        " where f.user_id = %s order by f.created_at desc",
         (user_id,),
     ).fetchall()
 
