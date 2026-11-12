@@ -96,7 +96,13 @@ export const api = {
     const params = new URLSearchParams({ q, source })
     return request<{ items: ScraperCandidate[] }>(`/api/scraper/search?${params}`)
   },
-  scraperImport: (body: { url: string; title?: string; type?: string; max_chapters?: number }) =>
+  scraperImport: (body: {
+    url: string
+    title?: string
+    type?: string
+    from_chapter?: number
+    to_chapter?: number
+  }) =>
     request<ImportResult>('/api/scraper/import', {
       method: 'POST',
       body: JSON.stringify(body),

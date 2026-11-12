@@ -245,7 +245,7 @@ def test_import_inmanga_saves_available_chapters(scraper_client, scraper_routes,
         httpx.Response(200, content=b"X" * 200)
     )
 
-    res = scraper_client.post("/api/scraper/import", json={"url": INMANGA_URL, "max_chapters": 1})
+    res = scraper_client.post("/api/scraper/import", json={"url": INMANGA_URL, "to_chapter": 1})
     assert res.status_code == 200
     assert res.json() == {
         "manga_id": f"inmanga-{INMANGA_ID}",
@@ -258,6 +258,46 @@ def test_import_inmanga_saves_available_chapters(scraper_client, scraper_routes,
         "https://pack-yak.intomanga.com/images/manga/Monster/chapter/1/page/p-one",
         "https://pack-yak.intomanga.com/images/manga/Monster/chapter/2/page/p-two",
     ]
+
+
+def test_import_zonatmo_only_downloads_chapter_range(scraper_client, scraper_routes, local_catalog):
+    scraper_routes[f"zonatmo.org/library/manga/{TMO_ID}/gachiakuta"] = TMO_OBRA_HTML
+    scraper_routes["zonatmo.org/view_uploads/22"] = TMO_VISOR_HTML
+    # Si se pidiera el capítulo 1, fallaría (no hay ruta) y contaría como "failed"
+
+    res = scraper_client.post(
+        "/api/scraper/import", json={"url": TMO_URL, "from_chapter": 2, "to_chapter": 2}
+    )
+    assert res.status_code == 200
+    assert res.json() == {
+        "manga_id": f"zonatmo-{TMO_ID}",
+        "title": "Gachiakuta",
+        "imported": 1,
+        "skipped": 0,
+        "failed": 0,
+    }
+    assert local_catalog.existing_chapters(f"zonatmo-{TMO_ID}") == {2.0}
+
+
+def test_import_inmanga_from_chapter_only(scraper_client, scraper_routes, local_catalog):
+    scraper_routes["inmanga.com/chapter/getall"] = INMANGA_CHAPTERS_JSON
+    scraper_routes["inmanga.com/ver/manga/Monster/02/cap-uuid-2"] = INMANGA_VIEWER_HTML
+    scraper_routes["inmanga.com/chapter/chapterIndexControls"] = INMANGA_CONTROLS_HTML
+    scraper_routes["pack-yak.intomanga.com/images/manga/Monster/chapter/1/page/p-one"] = lambda r: (
+        httpx.Response(200, content=b"X" * 200)
+    )
+
+    res = scraper_client.post("/api/scraper/import", json={"url": INMANGA_URL, "from_chapter": 2})
+    assert res.status_code == 200
+    assert res.json()["imported"] == 1
+    assert local_catalog.existing_chapters(f"inmanga-{INMANGA_ID}") == {2.0}
+
+
+def test_import_rejects_inverted_range(scraper_client):
+    res = scraper_client.post(
+        "/api/scraper/import", json={"url": TMO_URL, "from_chapter": 5, "to_chapter": 2}
+    )
+    assert res.status_code == 422
 
 
 def test_local_catalog_sql_methods():

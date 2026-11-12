@@ -129,6 +129,11 @@ def _parsear_inmanga(html: str) -> list[dict]:
     return obras
 
 
+def _en_rango(numero: float, desde: float | None, hasta: float | None) -> bool:
+    """Indica si el capítulo `numero` está dentro del rango [desde, hasta] (ambos opcionales)."""
+    return (desde is None or numero >= desde) and (hasta is None or numero <= hasta)
+
+
 def _public_item(obra: dict) -> dict:
     return {
         "id": str(obra["id"]),
@@ -185,8 +190,10 @@ class ScraperClient:
         catalog: LocalCatalog,
         title_override: str | None = None,
         type_override: str | None = None,
-        max_chapters: int | None = None,
+        from_chapter: float | None = None,
+        to_chapter: float | None = None,
     ) -> dict:
+        """Importa la obra y solo los capítulos cuyo número esté en [from_chapter, to_chapter]."""
         obra = parse_manga_url(url)
         if not obra:
             raise InvalidMangaUrl(url)
@@ -194,12 +201,13 @@ class ScraperClient:
             obra["title"] = title_override
         if type_override:
             obra["type"] = type_override
+        rango = (from_chapter, to_chapter)
         if obra["source"] == "inmanga":
-            return await self._import_inmanga(obra, catalog, max_chapters)
-        return await self._import_tmo(obra, catalog, max_chapters)
+            return await self._import_inmanga(obra, catalog, rango)
+        return await self._import_tmo(obra, catalog, rango)
 
     async def _import_tmo(
-        self, obra: dict, catalog: LocalCatalog, max_chapters: int | None
+        self, obra: dict, catalog: LocalCatalog, rango: tuple[float | None, float | None]
     ) -> dict:
         r = await self.http.get(obra["url"])
         r.raise_for_status()
@@ -221,8 +229,10 @@ class ScraperClient:
         )
         en_db = catalog.existing_chapters(manga_id)
         imported, skipped, failed = 0, 0, 0
-        for idx, (num, cap_title, url_upload) in enumerate(caps[: max_chapters or None], 1):
+        for idx, (num, cap_title, url_upload) in enumerate(caps, 1):
             numero = float(num if num is not None else idx)
+            if not _en_rango(numero, *rango):
+                continue
             if numero in en_db:
                 skipped += 1
                 continue
@@ -273,7 +283,7 @@ class ScraperClient:
         return url, _imagenes_tmo(html)
 
     async def _import_inmanga(
-        self, obra: dict, catalog: LocalCatalog, max_chapters: int | None
+        self, obra: dict, catalog: LocalCatalog, rango: tuple[float | None, float | None]
     ) -> dict:
         r = await self.http.get(
             f"{INMANGA_BASE}/chapter/getall",
@@ -297,8 +307,10 @@ class ScraperClient:
         )
         en_db = catalog.existing_chapters(manga_id)
         imported, skipped, failed = 0, 0, 0
-        for cap in caps[: max_chapters or None]:
+        for cap in caps:
             numero = float(cap["Number"])
+            if not _en_rango(numero, *rango):
+                continue
             if numero in en_db:
                 skipped += 1
                 continue

@@ -3,11 +3,19 @@ import { Link } from 'react-router-dom'
 import { api, type ImportResult, type ScraperCandidate, type ScraperSource } from '../api'
 import { useSession } from '../supabase'
 
+/** Convierte el texto del input en número de capítulo; vacío o inválido = sin límite. */
+function parseChapter(value: string): number | undefined {
+  if (value.trim() === '') return undefined
+  const n = Number(value)
+  return Number.isFinite(n) && n >= 0 ? n : undefined
+}
+
 export default function ImportManga() {
   const session = useSession()
   const [query, setQuery] = useState('')
   const [source, setSource] = useState<ScraperSource>('zonatmo')
-  const [maxChapters, setMaxChapters] = useState('')
+  const [fromChapter, setFromChapter] = useState('')
+  const [toChapter, setToChapter] = useState('')
   const [searching, setSearching] = useState(false)
   const [importingUrl, setImportingUrl] = useState<string | null>(null)
   const [results, setResults] = useState<ScraperCandidate[] | null>(null)
@@ -34,16 +42,22 @@ export default function ImportManga() {
   }
 
   async function onImport(item: ScraperCandidate) {
+    const desde = parseChapter(fromChapter)
+    const hasta = parseChapter(toChapter)
+    if (desde !== undefined && hasta !== undefined && desde > hasta) {
+      setError('El capítulo «desde» no puede ser mayor que «hasta».')
+      return
+    }
     setImportingUrl(item.url)
     setError(null)
     setImported(null)
     try {
-      const limit = Number(maxChapters)
       const res = await api.scraperImport({
         url: item.url,
         title: item.title,
         type: item.type,
-        max_chapters: limit > 0 ? limit : undefined,
+        from_chapter: desde,
+        to_chapter: hasta,
       })
       setImported(res)
     } catch {
@@ -79,12 +93,23 @@ export default function ImportManga() {
         </select>
         <input
           type="number"
-          min={1}
-          value={maxChapters}
-          onChange={(e) => setMaxChapters(e.target.value)}
-          placeholder="Máx. caps (todos)"
-          aria-label="Máximo de capítulos"
-          className="max-caps"
+          min={0}
+          step="any"
+          value={fromChapter}
+          onChange={(e) => setFromChapter(e.target.value)}
+          placeholder="Desde cap. (1º)"
+          aria-label="Desde el capítulo"
+          className="chapter-range"
+        />
+        <input
+          type="number"
+          min={0}
+          step="any"
+          value={toChapter}
+          onChange={(e) => setToChapter(e.target.value)}
+          placeholder="Hasta cap. (último)"
+          aria-label="Hasta el capítulo"
+          className="chapter-range"
         />
         <button disabled={searching || importingUrl !== null}>
           {searching ? 'Buscando…' : 'Buscar'}

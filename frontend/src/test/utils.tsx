@@ -5,7 +5,7 @@ import type { ReactElement } from 'react'
 
 /** Simula fetch: cada clave es un fragmento de URL y su valor el JSON a devolver. */
 export function mockFetch(routes: Record<string, unknown>) {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
     const url = String(input)
     const key = Object.keys(routes).find((k) => url.includes(k))
     if (key === undefined) return new Response('not found', { status: 404 })
