@@ -84,7 +84,7 @@ def test_save_manga_and_chapters_idempotent(catalog):
             "description": "Sinopsis 1",
         }
     )
-    # Upsert actualiza metadatos sin duplicar
+    # Upsert no duplica y conserva la portada/descripción que ya tenía la obra
     catalog.save_manga(
         {
             "id": "zonatmo-99",
@@ -96,7 +96,8 @@ def test_save_manga_and_chapters_idempotent(catalog):
             "description": "Sinopsis 2",
         }
     )
-    assert catalog.manga("zonatmo-99")["cover_url"] == "https://zonatmo.org/c2.jpg"
+    assert catalog.manga("zonatmo-99")["cover_url"] == "https://zonatmo.org/c.jpg"
+    assert catalog.manga("zonatmo-99")["description"] == "Sinopsis 1"
     assert catalog.existing_chapters("zonatmo-99") == set()
 
     catalog.save_chapter(
@@ -119,3 +120,23 @@ def test_save_manga_and_chapters_idempotent(catalog):
     )
     assert catalog.existing_chapters("zonatmo-99") == {1.0, 2.5}
     assert catalog.pages("zonatmo-99~1") == ["https://img/1.webp", "https://img/2.webp"]
+
+
+def test_save_manga_fills_missing_cover_and_description(catalog):
+    monster = {"id": "inmanga-2", "source": "inmanga", "title": "Monster", "type": "manga"}
+    # Sin datos nuevos: no se inventa nada ni falla
+    catalog.save_manga({**monster, "url": "u", "cover_url": None, "description": ""})
+    assert catalog.manga("inmanga-2")["cover_url"] is None
+    assert catalog.manga("inmanga-2")["description"] is None
+
+    # La obra no tenía portada ni descripción: se rellenan
+    catalog.save_manga(
+        {**monster, "url": "u", "cover_url": "https://cdn1/m.jpg", "description": "Sinopsis"}
+    )
+    assert catalog.manga("inmanga-2")["cover_url"] == "https://cdn1/m.jpg"
+    assert catalog.manga("inmanga-2")["description"] == "Sinopsis"
+
+    # Un import posterior sin metadatos no las borra
+    catalog.save_manga({**monster, "url": "u", "cover_url": None, "description": None})
+    assert catalog.manga("inmanga-2")["cover_url"] == "https://cdn1/m.jpg"
+    assert catalog.manga("inmanga-2")["description"] == "Sinopsis"
